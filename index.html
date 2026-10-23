@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TaskQuest - Gamified To-Do & Timer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JS Canvas Confetti -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .font-display {
+            font-family: 'Fredoka', cursive;
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.92);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.5);
+        }
+        .sticker-card {
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .sticker-card:hover {
+            transform: scale(1.08) rotate(3deg);
+        }
+        .pulse-timer {
+            animation: pulse-ring 2s infinite;
+        }
+        @keyframes pulse-ring {
+            0% { transform: scale(0.98); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(0.98); }
+        }
+    </style>
+</head>
+<body class="text-slate-800 p-3 sm:p-6 min-h-screen flex flex-col items-center justify-start">
+
+    <!-- Header Navigation -->
+    <header class="w-full max-w-5xl flex flex-wrap justify-between items-center mb-6 gap-4">
+        <div class="flex items-center gap-3">
+            <div class="w-12 h-12 bg-amber-400 rounded-2xl flex items-center justify-center text-2xl shadow-lg shadow-amber-500/30 text-white font-black">
+                ✨
+            </div>
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-black font-display text-white tracking-wide drop-shadow">TaskQuest</h1>
+                <p class="text-xs sm:text-sm text-purple-100 font-medium">Focus 30 minutes, earn stickers & crush goals!</p>
+            </div>
+        </div>
+
+        <!-- Navigation Buttons -->
+        <div class="flex gap-2">
+            <button id="nav-app-btn" onclick="switchTab('app')" class="px-4 py-2 rounded-xl text-sm font-bold bg-white text-purple-700 shadow-md transition hover:bg-purple-50 flex items-center gap-2">
+                <i class="fa-solid fa-gamepad"></i> App
+            </button>
+            <button id="nav-stickers-btn" onclick="switchTab('stickers')" class="px-4 py-2 rounded-xl text-sm font-bold bg-white/20 text-white hover:bg-white/30 transition backdrop-blur flex items-center gap-2">
+                <i class="fa-solid fa-star"></i> Stickers (<span id="sticker-count-badge">0</span>)
+            </button>
+            <button id="nav-github-btn" onclick="switchTab('github')" class="px-4 py-2 rounded-xl text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 transition flex items-center gap-2 shadow-md">
+                <i class="fa-brands fa-github"></i> GitHub Code
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full max-w-5xl flex-1">
+
+        <!-- TAB 1: MAIN APP SECTION -->
+        <div id="tab-app" class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- LEFT COLUMN: ADD TASK & LIST -->
+            <div class="lg:col-span-6 space-y-6">
+                <!-- Add Task Card -->
+                <div class="glass-card rounded-3xl p-6 shadow-xl">
+                    <h2 class="text-xl font-bold font-display text-purple-900 mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-plus-circle text-purple-600"></i> What will you do today?
+                    </h2>
+                    <form id="add-task-form" onsubmit="handleAddTask(event)" class="space-y-3">
+                        <div>
+                            <input type="text" id="task-title-input" placeholder="e.g. Complete Math Homework 📚" required
+                                class="w-full px-4 py-3 rounded-2xl border-2 border-purple-100 focus:border-purple-500 focus:outline-none transition font-medium text-slate-700 placeholder-slate-400 bg-white/80">
+                        </div>
+                        <button type="submit" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 text-white rounded-2xl font-bold shadow-lg shadow-purple-500/30 transition transform active:scale-95 flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> Add Quest Task
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Todo Tasks List -->
+                <div class="glass-card rounded-3xl p-6 shadow-xl">
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-xl font-bold font-display text-purple-900 flex items-center gap-2">
+                            <i class="fa-solid fa-list-check text-purple-600"></i> Today's Quests
+                        </h2>
+                        <span id="task-stats" class="text-xs font-bold text-purple-600 bg-purple-100 px-3 py-1 rounded-full">0 tasks</span>
+                    </div>
+
+                    <div id="task-list-container" class="space-y-3 max-h-[380px] overflow-y-auto pr-1">
+                        <!-- Tasks dynamically inserted here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- RIGHT COLUMN: FOCUS TIMER -->
+            <div class="lg:col-span-6">
+                <div class="glass-card rounded-3xl p-6 shadow-xl h-full flex flex-col justify-between relative overflow-hidden">
+                    
+                    <!-- Top Active Quest Banner -->
+                    <div>
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-xs font-bold uppercase tracking-wider text-purple-600 bg-purple-100 px-3 py-1 rounded-full">Active Quest</span>
+                            <!-- Speed Up Test Mode Toggle -->
+                            <button onclick="toggleFastForward()" id="fast-btn" class="text-xs font-bold text-amber-600 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-full transition flex items-center gap-1">
+                                <i class="fa-solid fa-bolt"></i> Speed Test Mode (10x)
+                            </button>
+                        </div>
+                        <h3 id="active-task-title" class="text-2xl font-bold font-display text-slate-800 text-center my-2 min-h-[64px] flex items-center justify-center">
+                            Select a task to begin 🚀
+                        </h3>
+                    </div>
+
+                    <!-- Circular Progress & Timer Display -->
+                    <div class="my-6 flex flex-col items-center justify-center">
+                        <div class="relative w-64 h-64 flex items-center justify-center">
+                            <svg class="w-full h-full transform -rotate-90" viewBox="0 0 100 100">
+                                <!-- Background circle -->
+                                <circle cx="50" cy="50" r="42" stroke="currentColor" stroke-width="8" class="text-purple-100" fill="transparent" />
+                                <!-- Progress circle -->
+                                <circle id="timer-progress-ring" cx="50" cy="50" r="42" stroke="currentColor" stroke-width="8" 
+                                    class="text-purple-600 transition-all duration-300" fill="transparent" 
+                                    stroke-dasharray="263.89" stroke-dashoffset="0" stroke-linecap="round" />
+                            </svg>
+                            <!-- Inner Countdown Text -->
+                            <div class="absolute flex flex-col items-center justify-center text-center">
+                                <span id="timer-display" class="text-5xl font-black font-display text-slate-800 tracking-tight">30:00</span>
+                                <span id="timer-status-badge" class="text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider">Ready</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Timer Control Buttons -->
+                    <div class="space-y-3">
+                        <div class="grid grid-cols-3 gap-3">
+                            <button id="start-timer-btn" onclick="startTimer()" disabled class="py-3 px-4 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-emerald-500/20 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-play"></i> Start
+                            </button>
+                            <button id="pause-timer-btn" onclick="pauseTimer()" disabled class="py-3 px-4 bg-amber-500 hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-amber-500/20 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-pause"></i> Pause
+                            </button>
+                            <button id="reset-timer-btn" onclick="resetTimer()" disabled class="py-3 px-4 bg-rose-500 hover:bg-rose-600 disabled:opacity-50 disabled:cursor-not-allowed text-white font-bold rounded-2xl shadow-lg shadow-rose-500/20 transition flex items-center justify-center gap-2">
+                                <i class="fa-solid fa-rotate-left"></i> Reset
+                            </button>
+                        </div>
+                        <button id="force-finish-btn" onclick="triggerTimeOverModal()" disabled class="w-full py-2.5 bg-purple-100 hover:bg-purple-200 text-purple-700 font-bold rounded-2xl text-xs transition flex items-center justify-center gap-1.5 disabled:opacity-50 disabled:cursor-not-allowed">
+                            <i class="fa-solid fa-flag-checkered"></i> Test Trigger Question Modal
+                        </button>
+                    </div>
+
+                </div>
+            </div>
+
+        </div>
+
+
+        <!-- TAB 2: STICKER COLLECTION -->
+        <div id="tab-stickers" class="hidden">
+            <div class="glass-card rounded-3xl p-6 sm:p-8 shadow-xl">
+                <div class="text-center max-w-xl mx-auto mb-8">
+                    <h2 class="text-3xl font-black font-display text-purple-900 mb-2">🎉 Your Sticker Collection</h2>
+                    <p class="text-slate-600 text-sm">Finish 30-minute task sessions to earn badges and unlock stickers for your album!</p>
+                </div>
+
+                <!-- Sticker Grid Container -->
+                <div id="stickers-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-4">
+                    <!-- Dynamic Sticker cards -->
+                </div>
+            </div>
+        </div>
+
+
+        <!-- TAB 3: GITHUB EXPORT CODE FILES -->
+        <div id="tab-github" class="hidden">
+            <div class="glass-card rounded-3xl p-6 shadow-xl">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-2xl font-black font-display text-slate-800">🐙 GitHub Pages Export Files</h2>
+                        <p class="text-sm text-slate-600">Copy these ready-to-use files or deploy directly to host your application online for free!</p>
+                    </div>
+                    <!-- Download/Copy Actions -->
+                    <button onclick="copyCurrentCodeFile()" class="px-5 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-2xl shadow-lg shadow-purple-500/30 transition flex items-center gap-2 self-start">
+                        <i class="fa-solid fa-copy"></i> <span id="copy-btn-text">Copy Selected File</span>
+                    </button>
+                </div>
+
+                <!-- File Selector Tabs -->
+                <div class="flex overflow-x-auto gap-2 border-b border-slate-200 pb-3 mb-4">
+                    <button onclick="showCodeFile('index.html')" id="code-tab-index.html" class="code-tab-btn px-4 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white">index.html</button>
+                    <button onclick="showCodeFile('style.css')" id="code-tab-style.css" class="code-tab-btn px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-700 hover:bg-slate-300">style.css</button>
+                    <button onclick="showCodeFile('script.js')" id="code-tab-script.js" class="code-tab-btn px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-700 hover:bg-slate-300">script.js</button>
+                    <button onclick="showCodeFile('Readme.md')" id="code-tab-Readme.md" class="code-tab-btn px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-700 hover:bg-slate-300">Readme.md</button>
+                </div>
+
+                <!-- Code Block Viewport -->
+                <div class="relative rounded-2xl bg-slate-900 text-slate-100 p-4 font-mono text-xs sm:text-sm overflow-x-auto max-h-[480px]">
+                    <pre><code id="code-display-area">// Code loading...</code></pre>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- QUESTION POPUP MODAL (Triggers when timer finishes) -->
+    <div id="modal-time-over" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden transition-opacity">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center transform transition-all border-4 border-purple-200 animate-bounce-short">
+            
+            <div class="w-20 h-20 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center text-4xl mx-auto mb-4 shadow-inner">
+                ⏳
+            </div>
+
+            <h3 class="text-2xl font-black font-display text-slate-800 mb-2">Time is up!</h3>
+            <p id="modal-task-title" class="text-purple-600 font-bold text-lg mb-6 bg-purple-50 py-2 px-4 rounded-xl">
+                "Task Title Here"
+            </p>
+
+            <h4 class="text-xl font-bold text-slate-700 mb-6 font-display">Have you finished it?</h4>
+
+            <div class="grid grid-cols-2 gap-4">
+                <!-- YES BUTTON -->
+                <button onclick="handleModalResponse(true)" class="py-4 bg-emerald-500 hover:bg-emerald-600 text-white font-black text-lg rounded-2xl shadow-lg shadow-emerald-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-circle-check"></i> YES!
+                </button>
+                <!-- NO BUTTON -->
+                <button onclick="handleModalResponse(false)" class="py-4 bg-amber-500 hover:bg-amber-600 text-white font-black text-lg rounded-2xl shadow-lg shadow-amber-500/30 transition transform hover:-translate-y-0.5 active:translate-y-0 flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-clock-rotate-left"></i> NO (+5m)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CONGRATS / REWARD MODAL -->
+    <div id="modal-reward" class="fixed inset-0 bg-slate-900/60 backdrop-blur-md flex items-center justify-center p-4 z-50 hidden">
+        <div class="bg-white rounded-3xl p-6 sm:p-8 max-w-md w-full shadow-2xl text-center border-4 border-amber-300">
+            <div id="reward-sticker-icon" class="text-7xl mb-4 animate-bounce">
+                ⭐
+            </div>
+            <h3 class="text-3xl font-black font-display text-slate-800 mb-1">Well done! 🎉</h3>
+            <p id="reward-sticker-name" class="text-amber-600 font-bold text-lg mb-2">You earned: Gold Star!</p>
+            <p class="text-slate-600 text-sm mb-6">Awesome focus! This sticker has been added to your collection.</p>
+            <button onclick="closeRewardModal()" class="w-full py-3.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white font-bold rounded-2xl shadow-lg shadow-purple-500/30 transition">
+                Awesome! Continue Quests
+            </button>
+        </div>
+    </div>
+
+    <!-- JAVASCRIPT APPLICATION LOGIC -->
+    <script>
+        // --- DATA STATE ---
+        const STICKER_LIBRARY = [
+            { id: 'star', emoji: '⭐', title: 'Gold Star', desc: 'Completed a 30m quest!' },
+            { id: 'champion', emoji: '🏆', title: 'Champion', desc: 'Pure focus champion!' },
+            { id: 'rocket', emoji: '🚀', title: 'Rocket', desc: 'Blasting through goals!' },
+            { id: 'creative', emoji: '🎨', title: 'Creative', desc: 'Mindful productivity!' },
+            { id: 'bullseye', emoji: '🎯', title: 'Bullseye', desc: 'Hit your target time!' },
+            { id: 'superstar', emoji: '💖', title: 'Superstar', desc: 'Unstoppable task master!' }
+        ];
+
+        let tasks = JSON.parse(localStorage.getItem('tq_tasks')) || [];
+        let earnedStickerIds = JSON.parse(localStorage.getItem('tq_stickers')) || [];
+        let activeTaskId = null;
+
+        // Timer Variables
+        const DEFAULT_SECONDS = 30 * 60; // 30 minutes
+        let totalTime = DEFAULT_SECONDS;
+        let timeRemaining = DEFAULT_SECONDS;
+        let timerInterval = null;
+        let isRunning = false;
+        let isFastMode = false;
+
+        // --- DOM ELEMENTS ---
+        const taskListContainer = document.getElementById('task-list-container');
+        const activeTaskTitle = document.getElementById('active-task-title');
+        const timerDisplay = document.getElementById('timer-display');
+        const timerStatusBadge = document.getElementById('timer-status-badge');
+        const progressRing = document.getElementById('timer-progress-ring');
+        
+        const startBtn = document.getElementById('start-timer-btn');
+        const pauseBtn = document.getElementById('pause-timer-btn');
+        const resetBtn = document.getElementById('reset-timer-btn');
+        const forceFinishBtn = document.getElementById('force-finish-btn');
+        const fastBtn = document.getElementById('fast-btn');
+
+        const modalTimeOver = document.getElementById('modal-time-over');
+        const modalTaskTitle = document.getElementById('modal-task-title');
+        const modalReward = document.getElementById('modal-reward');
+
+        // --- INIT APP ---
+        window.onload = function() {
+            renderTasks();
+            renderStickerGrid();
+            updateTimerDisplay();
+        };
+
+        // --- TAB SWITCHING ---
+        function switchTab(tab) {
+            document.getElementById('tab-app').classList.add('hidden');
+            document.getElementById('tab-stickers').classList.add('hidden');
+            document.getElementById('tab-github').classList.add('hidden');
+
+            document.getElementById('nav-app-btn').className = "px-4 py-2 rounded-xl text-sm font-bold bg-white/20 text-white hover:bg-white/30 transition backdrop-blur flex items-center gap-2";
+            document.getElementById('nav-stickers-btn').className = "px-4 py-2 rounded-xl text-sm font-bold bg-white/20 text-white hover:bg-white/30 transition backdrop-blur flex items-center gap-2";
+            document.getElementById('nav-github-btn').className = "px-4 py-2 rounded-xl text-sm font-bold bg-slate-900 text-white hover:bg-slate-800 transition flex items-center gap-2 shadow-md";
+
+            if (tab === 'app') {
+                document.getElementById('tab-app').classList.remove('hidden');
+                document.getElementById('nav-app-btn').className = "px-4 py-2 rounded-xl text-sm font-bold bg-white text-purple-700 shadow-md transition hover:bg-purple-50 flex items-center gap-2";
+            } else if (tab === 'stickers') {
+                document.getElementById('tab-stickers').classList.remove('hidden');
+                document.getElementById('nav-stickers-btn').className = "px-4 py-2 rounded-xl text-sm font-bold bg-white text-purple-700 shadow-md transition hover:bg-purple-50 flex items-center gap-2";
+            } else if (tab === 'github') {
+                document.getElementById('tab-github').classList.remove('hidden');
+                document.getElementById('nav-github-btn').className = "px-4 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white shadow-md transition flex items-center gap-2";
+                showCodeFile('index.html');
+            }
+        }
+
+        // --- TASK MANAGEMENT ---
+        function handleAddTask(e) {
+            e.preventDefault();
+            const input = document.getElementById('task-title-input');
+            const title = input.value.trim();
+            if (!title) return;
+
+            const newTask = {
+                id: Date.now().toString(),
+                title: title,
+                completed: false,
+                createdAt: new Date().toLocaleDateString()
+            };
+
+            tasks.unshift(newTask);
+            saveTasks();
+            renderTasks();
+            input.value = '';
+
+            // Auto select if first task
+            if (tasks.length === 1 && !activeTaskId) {
+                selectTask(newTask.id);
+            }
+        }
+
+        function renderTasks() {
+            document.getElementById('task-stats').textContent = `${tasks.length} task${tasks.length === 1 ? '' : 's'}`;
+            taskListContainer.innerHTML = '';
+
+            if (tasks.length === 0) {
+                taskListContainer.innerHTML = `
+                    <div class="text-center py-8 text-slate-400">
+                        <i class="fa-solid fa-list-check text-3xl mb-2 opacity-50"></i>
+                        <p class="text-sm font-medium">No tasks added yet. Create one above!</p>
+                    </div>
+                `;
+                return;
+            }
+
+            tasks.forEach(task => {
+                const isActive = task.id === activeTaskId;
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-2xl border-2 transition flex items-center justify-between gap-3 ${
+                    isActive ? 'bg-purple-50/90 border-purple-500 shadow-md' : 'bg-white/80 border-slate-100 hover:border-purple-200'
+                } ${task.completed ? 'opacity-65' : ''}`;
+
+                card.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <button onclick="toggleTaskComplete('${task.id}')" class="text-lg text-slate-400 hover:text-emerald-500 transition">
+                            <i class="fa-${task.completed ? 'solid fa-circle-check text-emerald-500' : 'regular fa-circle'}"></i>
+                        </button>
+                        <span class="font-bold text-slate-700 truncate ${task.completed ? 'line-through text-slate-400' : ''}">
+                            ${escapeHtml(task.title)}
+                        </span>
+                    </div>
+
+                    <div class="flex items-center gap-1 shrink-0">
+                        ${!task.completed ? `
+                            <button onclick="selectTask('${task.id}')" class="px-3 py-1.5 rounded-xl text-xs font-bold ${
+                                isActive ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'
+                            } transition">
+                                ${isActive ? 'Active' : 'Select'}
+                            </button>
+                        ` : ''}
+                        <button onclick="deleteTask('${task.id}')" class="p-2 text-slate-400 hover:text-rose-500 transition">
+                            <i class="fa-solid fa-trash-can text-sm"></i>
+                        </button>
+                    </div>
+                `;
+                taskListContainer.appendChild(card);
+            });
+        }
+
+        function selectTask(id) {
+            const task = tasks.find(t => t.id === id);
+            if (!task) return;
+            activeTaskId = id;
+            activeTaskTitle.textContent = task.title;
+            renderTasks();
+            
+            // Enable controls
+            startBtn.disabled = false;
+            resetBtn.disabled = false;
+            forceFinishBtn.disabled = false;
+        }
+
+        function toggleTaskComplete(id) {
+            tasks = tasks.map(t => t.id === id ? { ...t, completed: !t.completed } : t);
+            saveTasks();
+            renderTasks();
+        }
+
+        function deleteTask(id) {
+            tasks = tasks.filter(t => t.id !== id);
+            if (activeTaskId === id) {
+                activeTaskId = null;
+                activeTaskTitle.textContent = 'Select a task to begin 🚀';
+                resetTimer();
+                startBtn.disabled = true;
+                pauseBtn.disabled = true;
+                resetBtn.disabled = true;
+                forceFinishBtn.disabled = true;
+            }
+            saveTasks();
+            renderTasks();
+        }
+
+        function saveTasks() {
+            localStorage.setItem('tq_tasks', JSON.stringify(tasks));
+        }
+
+        // --- TIMER CONTROLS ---
+        function startTimer() {
+            if (!activeTaskId || isRunning) return;
+            isRunning = true;
+            startBtn.disabled = true;
+            pauseBtn.disabled = false;
+            timerStatusBadge.textContent = 'Focusing...';
+            timerStatusBadge.className = 'text-xs font-semibold text-purple-600 mt-1 uppercase tracking-wider animate-pulse';
+
+            const speedMultiplier = isFastMode ? 10 : 1;
+            timerInterval = setInterval(() => {
+                timeRemaining--;
+                updateTimerDisplay();
+
+                if (timeRemaining <= 0) {
+                    pauseTimer();
+                    triggerTimeOverModal();
+                }
+            }, 1000 / speedMultiplier);
+        }
+
+        function pauseTimer() {
+            isRunning = false;
+            clearInterval(timerInterval);
+            startBtn.disabled = false;
+            pauseBtn.disabled = true;
+            timerStatusBadge.textContent = 'Paused';
+            timerStatusBadge.className = 'text-xs font-semibold text-amber-500 mt-1 uppercase tracking-wider';
+        }
+
+        function resetTimer() {
+            pauseTimer();
+            timeRemaining = DEFAULT_SECONDS;
+            totalTime = DEFAULT_SECONDS;
+            updateTimerDisplay();
+            timerStatusBadge.textContent = 'Ready';
+            timerStatusBadge.className = 'text-xs font-semibold text-slate-500 mt-1 uppercase tracking-wider';
+        }
+
+        function addExtraMinutes(mins) {
+            timeRemaining += mins * 60;
+            totalTime += mins * 60;
+            updateTimerDisplay();
+            startTimer();
+        }
+
+        function toggleFastForward() {
+            isFastMode = !isFastMode;
+            if (isFastMode) {
+                fastBtn.className = "text-xs font-bold text-white bg-amber-500 shadow-md px-3 py-1 rounded-full transition flex items-center gap-1";
+                fastBtn.innerHTML = `<i class="fa-solid fa-bolt"></i> Speed Mode ON (10x)`;
+            } else {
+                fastBtn.className = "text-xs font-bold text-amber-600 bg-amber-100 hover:bg-amber-200 px-3 py-1 rounded-full transition flex items-center gap-1";
+                fastBtn.innerHTML = `<i class="fa-solid fa-bolt"></i> Speed Test Mode (10x)`;
+            }
+
+            if (isRunning) {
+                pauseTimer();
+                startTimer();
+            }
+        }
+
+        function updateTimerDisplay() {
+            const mins = Math.floor(timeRemaining / 60);
+            const secs = timeRemaining % 60;
+            timerDisplay.textContent = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+
+            // Update Circle Progress
+            const strokeDashoffset = 263.89 - (263.89 * (timeRemaining / totalTime));
+            progressRing.style.strokeDashoffset = strokeDashoffset;
+        }
+
+        // --- TIME OVER MODAL & REWARDS ---
+        function triggerTimeOverModal() {
+            const activeTask = tasks.find(t => t.id === activeTaskId);
+            modalTaskTitle.textContent = activeTask ? `"${activeTask.title}"` : 'Current Quest';
+            modalTimeOver.classList.remove('hidden');
+        }
+
+        function handleModalResponse(finished) {
+            modalTimeOver.classList.add('hidden');
+
+            if (finished) {
+                // Mark complete
+                if (activeTaskId) {
+                    toggleTaskComplete(activeTaskId);
+                }
+                // Award Sticker & Confetti
+                awardSticker();
+                resetTimer();
+            } else {
+                // Add 5 Minutes
+                addExtraMinutes(5);
+            }
+        }
+
+        function awardSticker() {
+            // Pick a random sticker
+            const randomSticker = STICKER_LIBRARY[Math.floor(Math.random() * STICKER_LIBRARY.length)];
+            
+            if (!earnedStickerIds.includes(randomSticker.id)) {
+                earnedStickerIds.push(randomSticker.id);
+                localStorage.setItem('tq_stickers', JSON.stringify(earnedStickerIds));
+            }
+
+            renderStickerGrid();
+
+            // Fire Confetti
+            confetti({
+                particleCount: 120,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+
+            // Show Reward Modal
+            document.getElementById('reward-sticker-icon').textContent = randomSticker.emoji;
+            document.getElementById('reward-sticker-name').textContent = `You earned: ${randomSticker.title}!`;
+            modalReward.classList.remove('hidden');
+        }
+
+        function closeRewardModal() {
+            modalReward.classList.add('hidden');
+        }
+
+        function renderStickerGrid() {
+            const grid = document.getElementById('stickers-grid');
+            document.getElementById('sticker-count-badge').textContent = earnedStickerIds.length;
+            grid.innerHTML = '';
+
+            STICKER_LIBRARY.forEach(stk => {
+                const isEarned = earnedStickerIds.includes(stk.id);
+                const card = document.createElement('div');
+                card.className = `sticker-card p-4 rounded-2xl text-center border-2 transition ${
+                    isEarned ? 'bg-white border-amber-300 shadow-lg' : 'bg-slate-100/60 border-slate-200 opacity-40'
+                }`;
+
+                card.innerHTML = `
+                    <div class="text-4xl mb-2">${isEarned ? stk.emoji : '🔒'}</div>
+                    <div class="font-bold text-xs text-slate-800">${stk.title}</div>
+                    <div class="text-[10px] text-slate-500 mt-0.5">${stk.desc}</div>
+                `;
+                grid.appendChild(card);
+            });
+        }
+
+        // --- GITHUB CODE EXPORT VIEWER ---
+        const CODE_FILES = {
+            'index.html': `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TaskQuest - Gamified To-Do & Timer</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.tailwindcss.com"><\/script>
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"><\/script>
+</head>
+<body class="bg-gradient-to-br from-indigo-500 to-purple-700 min-h-screen text-slate-800 p-4">
+  <div id="app" class="max-w-4xl mx-auto">
+    <!-- TaskQuest Application UI -->
+    <h1 class="text-3xl font-bold text-white text-center mb-6">TaskQuest</h1>
+    <!-- Task list & 30-min timer controls go here -->
+  </div>
+  <script src="script.js"><\/script>
+</body>
+</html>`,
+            'style.css': `/* TaskQuest Custom Styles */
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600&display=swap');
+
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+.glass-card {
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1.5rem;
+}
+
+.sticker-card {
+  transition: transform 0.3s ease;
+}
+
+.sticker-card:hover {
+  transform: scale(1.08) rotate(3deg);
+}`,
+            'script.js': `// TaskQuest Timer & Game Logic
+let timeRemaining = 30 * 60; // 30 Minutes
+let timerInterval = null;
+
+function startTimer() {
+  timerInterval = setInterval(() => {
+    timeRemaining--;
+    if (timeRemaining <= 0) {
+      clearInterval(timerInterval);
+      showTimeOverModal();
+    }
+  }, 1000);
+}
+
+function showTimeOverModal() {
+  const finished = confirm("Time is up! Have you finished your task?");
+  if (finished) {
+    alert("Well done! You earned a sticker 🎉");
+  } else {
+    timeRemaining += 5 * 60; // +5 Mins
+    startTimer();
+  }
+}`,
+            'Readme.md': `# TaskQuest 🚀
+
+An interactive gamified to-do list with a 30-minute timer, question popups, extra time features, and sticker rewards!
+
+## 🌟 How to Host on GitHub Pages
+
+1. Create a new repository on **GitHub** named \`task-quest\`.
+2. Upload the following files to your repository:
+   - \`index.html\`
+   - \`style.css\`
+   - \`script.js\`
+3. Go to **Settings** > **Pages** in your GitHub repository.
+4. Under **Build and deployment**, select **Branch: main** (or master) and folder **/(root)**.
+5. Click **Save**. Your gamified todo app will be live in minutes!`
+        };
+
+        let currentActiveFile = 'index.html';
+
+        function showCodeFile(filename) {
+            currentActiveFile = filename;
+            document.querySelectorAll('.code-tab-btn').forEach(btn => {
+                btn.className = "code-tab-btn px-4 py-2 rounded-xl text-sm font-bold bg-slate-200 text-slate-700 hover:bg-slate-300";
+            });
+            document.getElementById(`code-tab-${filename}`).className = "code-tab-btn px-4 py-2 rounded-xl text-sm font-bold bg-purple-600 text-white";
+            
+            document.getElementById('code-display-area').textContent = CODE_FILES[filename];
+        }
+
+        function copyCurrentCodeFile() {
+            const content = CODE_FILES[currentActiveFile];
+            const tempTextArea = document.createElement('textarea');
+            tempTextArea.value = content;
+            document.body.appendChild(tempTextArea);
+            tempTextArea.select();
+            document.execCommand('copy');
+            document.body.removeChild(tempTextArea);
+
+            const copyBtnText = document.getElementById('copy-btn-text');
+            copyBtnText.textContent = 'Copied!';
+            setTimeout(() => {
+                copyBtnText.textContent = 'Copy Selected File';
+            }, 2000);
+        }
+
+        function escapeHtml(str) {
+            return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+        }
+    </script>
+</body>
+</html>
+
+
